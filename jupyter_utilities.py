@@ -95,6 +95,22 @@ def multi_plot(df,x_column,save_file_prefix=None,save_image_folder=None,dates_pe
         image_names.append(image_name)
     return (all_axes,image_names)
 
+def multi_df_plot(dict_df,x_column,save_file_prefix=None,save_image_folder=None,num_of_x_ticks=20,figsize=(16,10),bar_plot=False):
+    f = plt.figure()
+    image_names = []
+    all_axes = []
+    for k in dict_df.keys():
+        df = dict_df[k]
+        ax = plot_pandas(df,x_column,num_of_x_ticks=num_of_x_ticks,figsize=figsize,bar_plot= bar_plot)
+        ax.set_title(k)
+        all_axes.append(ax)
+        if save_file_prefix is None or save_image_folder is None:
+            continue
+        image_name = f'{save_image_folder}/{save_file_prefix}_{p+1}.png'
+        ax.get_figure().savefig(image_name)
+        image_names.append(image_name)
+    return (all_axes,image_names)
+
 
 
 # create random open interest and price data
