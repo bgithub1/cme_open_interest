@@ -3,15 +3,21 @@ import pandas as pd
 import numpy as np
 import os, sys
 import datetime
+import pandas_datareader.data as pdr
 
 import matplotlib.pyplot as plt
 import plotly.plotly as py
 import plotly.graph_objs as go
+from plotly.offline import iplot
+import plotly.tools as tls
+
 import zipfile
 import urllib.request
 from PIL import Image
 import pandasql as psql
 import importlib
+import time
+import re
 
 def str_to_yyyymmdd(d,sep='-'):
     try:
@@ -29,6 +35,21 @@ def str_to_date(d,sep='-'):
     return dt
 
 
+def fetch_history(symbol,dt_beg,dt_end):
+    df = pdr.DataReader(symbol, 'yahoo', dt_beg, dt_end)
+    # move index to date column, sort and recreate index
+    df['date'] = df.index
+    df = df.sort_values('date')
+    df.index = list(range(len(df)))
+    # make adj close the close
+    df['Close'] = df['Adj Close']
+    df = df.drop(['Adj Close'],axis=1)
+    cols = df.columns.values 
+    cols_dict = {c:c[0].lower() + c[1:] for c in cols}
+    df = df.rename(columns = cols_dict)
+    df['trade_date'] = df.date.apply(str_to_yyyymmdd)
+    return df
+    
 
 def psql_merge(df1_name,col1_low,col1_high,df2_name,col2_low,col2_high):
     q = f"""select * from {df1_name}
@@ -99,6 +120,7 @@ def multi_df_plot(dict_df,x_column,save_file_prefix=None,save_image_folder=None,
     f = plt.figure()
     image_names = []
     all_axes = []
+    p = 0
     for k in dict_df.keys():
         df = dict_df[k]
         ax = plot_pandas(df,x_column,num_of_x_ticks=num_of_x_ticks,figsize=figsize,bar_plot= bar_plot)
@@ -106,9 +128,10 @@ def multi_df_plot(dict_df,x_column,save_file_prefix=None,save_image_folder=None,
         all_axes.append(ax)
         if save_file_prefix is None or save_image_folder is None:
             continue
-        image_name = f'{save_image_folder}/{save_file_prefix}_{p+1}.png'
+        image_name = f'{save_image_folder}/{save_file_prefix}_{k}{p+1}.png'
         ax.get_figure().savefig(image_name)
         image_names.append(image_name)
+        p += 1
     return (all_axes,image_names)
 
 
@@ -181,3 +204,185 @@ def multi_plot_example(saved_image_folder):
 def reload_module(module_name):
     importlib.reload(module_name)
 
+
+nymex_sd_dict = {s:'NYMEX' for s in ['CL','NG','HO','RB','PL','PA']}
+mcs_lists = {c:'FGHJKMNQUVXZ' for c in nymex_sd_dict.keys()}
+secdef_dict = nymex_sd_dict.copy()
+
+ecbot_hknuz_sd_dict = {s:'ECBOT' for s in ['ZW','ZC','ZS']}
+mcs_lists.update({c:'HKNUZ' for c in ecbot_hknuz_sd_dict.keys()})
+secdef_dict.update(ecbot_hknuz_sd_dict)
+
+ecbot_hmuz_sd_dict = {s:'ECBOT' for s in ['ZN','ZB']}
+mcs_lists.update({c:'HMUZ' for c in ecbot_hmuz_sd_dict.keys()})
+secdef_dict.update(ecbot_hmuz_sd_dict)
+
+ecbot_fhknqux_sd_dict = {s:'ECBOT' for s in ['ZS']}
+mcs_lists.update({c:'FHKNQUX' for c in ecbot_fhknqux_sd_dict.keys()})
+secdef_dict.update(ecbot_fhknqux_sd_dict)
+
+cme_hmuz_sd_dict = {s:'GLOBEX' for s in ['ES','GE','6E','6B','EUR','GBP','SF']}
+mcs_lists.update({c:'HMUZ' for c in cme_hmuz_sd_dict.keys()})
+secdef_dict.update(cme_hmuz_sd_dict)
+
+comex_gjmqvz_sd_dict = {s:'NYMEX' for s in ['GC']}
+mcs_lists.update({c:'GJMQVZ' for c in comex_gjmqvz_sd_dict.keys()})
+secdef_dict.update(comex_gjmqvz_sd_dict)
+
+
+month_codes = ','.join('FGHJKMNQUVXZ').split(',')
+monthcode_to_monthnum = {month_codes[i]:i for i in range(len(month_codes))}
+
+symbol_exceptions = {'GLD':'GLD.STK.ARCA'}
+    
+def get_spot_code(commod):
+    global mcs_lists,secdef_dict
+    mcs = mcs_lists[commod]
+    n = datetime.datetime.now()
+    endy = n.year - 2000
+    begy = endy - 2
+    m = n.month 
+    code_this_month = month_codes[m-1]
+    spot_code = None
+    for c in mcs:
+        if c>=code_this_month:
+            spot_code=c
+            break
+    if spot_code is None:
+        spot_code = mcs[0]
+        endy +=1
+    return spot_code
+
+def get_series(commod,SAVE_CSV_FOLDER):
+    global mcs_lists,secdef_dict
+    mcs = mcs_lists[commod]
+    n = datetime.datetime.now()
+    endy = n.year - 2000
+    begy = endy - 2
+    spot_code = get_spot_code(commod)
+    last_contract = spot_code + '%02d' %(endy)
+    print(last_contract)
+    years = np.linspace(begy,endy,endy-begy+1,dtype=int)
+    print('years',years)
+    for y in years:
+        for mc in mcs:
+            symbol = '%s%s%02d' %(commod,mc,y)
+            save_file = f'{SAVE_CSV_FOLDER}/{symbol}.csv'
+            if os.path.isfile(save_file):
+                continue
+            print(f'fetch symbol {symbol}')
+            try:
+                df = fetch_ib_history(symbol)
+                df.to_csv(save_file)
+                yym = symbol[-2:] + symbol[-3:-2]
+                lyym = last_contract[-2:] + last_contract[-3:-2]
+                print('yym',yym,'lyym',lyym)
+                if yym >= lyym:
+                    break
+            except Exception as e:
+                print('get_series EXCEPTION: ',str(e))
+                continue
+                      
+
+
+def make_nav_csv(df,symbol):
+    df['trade_date'] = df.date.apply(lambda d: int(str(d)[0:4] + str(d)[5:7] + str(d)[8:10]))
+    df.date = df.date.apply(lambda d: str(d)[0:4] + "-" + str(d)[4:6] + "-" + str(d)[6:8])
+    df = df.sort_values('date')
+    df.index = list(range(len(df)))
+    # make adj close the close
+    df['nav'] = df['adjusted']
+    df['symbol'] = symbol
+    df['shares'] = 0
+    df = df[['symbol','date','nav','shares','trade_date']]
+    return df
+
+def make_ib_full_symbol(symbol_or_contract,currency='USD'):
+    if symbol_or_contract in symbol_exceptions.keys():
+        return symbol_exceptions[symbol_or_contract]
+    isfuture = len(re.findall(string=symbol_or_contract.strip(),pattern='^.{1,4}[FGHJKMNQUVXZ][0-4][0-9]$'))>0
+    if isfuture:
+        if len(symbol_or_contract)>3:
+            commod = symbol_or_contract[:-3]
+        else:
+            commod = symbol_or_contract
+        exch = secdef_dict[commod]
+        y = str(2000 + int(symbol_or_contract[-2:]))
+        m = '%02d' %(monthcode_to_monthnum[symbol_or_contract[-3:-2]] + 1)
+        contract = ".".join([commod,'FUT',exch,currency,y])+m
+    else:
+        iscontract = len(symbol_or_contract.split('.'))>=3
+        if iscontract:
+            contract = symbol_or_contract
+        else:
+            contract = symbol_or_contract + '.STK.SMART'
+    return contract
+
+def fetch_ib_history(symbol_or_contract,return_raw=False,days_back=60,time_period=86400000,currency='USD'):
+    contract = make_ib_full_symbol(symbol_or_contract,currency=currency)
+    url = f"http://127.0.0.1:8899/ibhistory?{time_period}%20{days_back}%200%205%20{contract}"
+    df = pd.read_csv(url)
+    if not return_raw:
+        df = make_nav_csv(df,symbol_or_contract)
+    return df
+    
+    
+    
+def symbol_merge(symbol_list,value_column='close',date_column='date',fetcher=None,days=120):
+    def _default_fetcher(days_to_fetch=None):
+        dtf = days if days_to_fetch is None else days_to_fetch
+        def _fetch_inner(sym):
+            return fetch_ib_history(symbol_or_contract=sym,return_raw=True,days_back=dtf)
+        return _fetch_inner
+    ff = fetcher
+    if ff is None:
+        ff = _default_fetcher(days)
+    df_final = None
+    df_merged = None
+    for sym in symbol_list:
+        try:
+            dft = ff(sym)
+            dft['symbol'] = sym
+            if df_final is None:
+                df_final = dft.copy()
+            else:
+                df_final = df_final.append(dft,ignore_index=True)
+            df_final.index = list(range(len(df_final)))
+            dft2 = dft[[date_column,value_column]]
+            dft2 = dft2.rename(columns={value_column:sym})
+            if df_merged is None:
+                df_merged = dft2.copy()
+            else:
+                df_merged = df_merged.merge(dft2,how='inner',on=date_column)
+        except Exception as e:
+            print(str(e))
+            continue
+    dfm2 = df_merged.copy()
+    dfm2 = dfm2.drop(columns=[date_column])
+    df_corr = dfm2.corr()
+    return {'raw':df_final,'merged':df_merged,'corr':df_corr}
+
+def plotly_pandas(df_in,x_column,num_of_x_ticks=20,bar_plot=False,figsize=(16,10)):    
+    plotly_fig = tls.mpl_to_plotly(plot_pandas(
+        df_in,
+        x_column=x_column,
+        num_of_x_ticks=num_of_x_ticks,
+        bar_plot=bar_plot,
+        figsize=figsize).get_figure())
+    d1 = plotly_fig['data'][0]
+    
+    number_of_ticks_display=num_of_x_ticks
+    td = list(df_in[x_column]) 
+    spacing = len(td)//number_of_ticks_display
+    tdvals = td[::spacing]
+    d1.x = td
+    layout = go.Layout(
+        xaxis=dict(
+            ticktext=tdvals,
+            tickvals=tdvals,
+            tickangle=90,
+            type='category'
+        )
+    )
+    fig = go.Figure(data=[d1],layout=layout)
+    return fig   
