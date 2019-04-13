@@ -74,8 +74,7 @@ def plot_pandas(df_in,x_column,num_of_x_ticks=20,bar_plot=False,figsize=(16,10))
     x = list(range(len(df_cl)))
     n = len(x)
     s = num_of_x_ticks
-    k = n//s*s
-    x_indices = x[::-1][:k][::k//s][::-1]
+    x_indices = x[::n//s][::-1]
     x_labels = [str(t) for t in list(df_cl.iloc[x_indices][x_column])]
     ycols = list(filter(lambda c: c!=x_column,df_cl.columns.values))
     all_cols = [x_column] + ycols
@@ -201,6 +200,32 @@ def multi_plot_example(saved_image_folder):
     save_file = f"{saved_image_folder}/random_nav_all.png"
     imgs_comb.save( save_file)
 
+    
+# Now, generate to small plots inside a larger figure, using plt.figure
+def multi_subplots(y):
+    '''
+        y is a 2 dimensional a "matrix-like" np.array, where the dimension 0 is the number of rows,
+          and dimension 1 is the number of columns
+        For each column, create a subplot.
+    '''
+    plt.figure(figsize=(8,3*y.shape[1]))
+    colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
+    # on each iteration of this loop, we create another subplot, BUT NOT ON THE SAME PLO.
+    # Previously, we created 2 plots, with different y axis's, on the same plot.
+    # Now, we generate 2 plots (subplots).
+    for i in range(y.shape[1]):
+        plt.subplot(y.shape[1],1,1+i)
+        if i<=0:
+            plt.title('A Simple Plot')
+        plt.plot(y[:, i],colors[i], lw=1.5, label=f'{i+1}st')
+        plt.plot(y[:, i],'ro')
+        plt.legend(loc=0)
+        plt.grid(True)
+        plt.axis('tight')
+        plt.xlabel('index')
+        plt.ylabel(f'value {i+1}')
+    
+    
 def reload_module(module_name):
     importlib.reload(module_name)
 
@@ -362,27 +387,97 @@ def symbol_merge(symbol_list,value_column='close',date_column='date',fetcher=Non
     df_corr = dfm2.corr()
     return {'raw':df_final,'merged':df_merged,'corr':df_corr}
 
-def plotly_pandas(df_in,x_column,num_of_x_ticks=20,bar_plot=False,figsize=(16,10)):    
-    plotly_fig = tls.mpl_to_plotly(plot_pandas(
-        df_in,
-        x_column=x_column,
-        num_of_x_ticks=num_of_x_ticks,
-        bar_plot=bar_plot,
-        figsize=figsize).get_figure())
+def plotly_pandas(df_in,x_column,num_of_x_ticks=20,plot_title=None,
+                  y_left_label=None,y_right_label=None,bar_plot=False,figsize=(16,10)):    
+    f = plot_pandas(df_in,x_column=x_column,bar_plot=False)#.get_figure()
+    # list(filter(lambda s: 'get_y' in s,dir(f)))
+    plotly_fig = tls.mpl_to_plotly(f.get_figure())
     d1 = plotly_fig['data'][0]
-    
-    number_of_ticks_display=num_of_x_ticks
+    number_of_ticks_display=20
     td = list(df_in[x_column]) 
     spacing = len(td)//number_of_ticks_display
     tdvals = td[::spacing]
     d1.x = td
+    d_array = [d1]
+    if len(plotly_fig['data'])>1:
+        d2 = plotly_fig['data'][1]
+        d2.x = td
+        d2.xaxis = 'x'
+        d_array.append(d2)
+
     layout = go.Layout(
+        title='plotly' if plot_title is None else plot_title,
         xaxis=dict(
             ticktext=tdvals,
             tickvals=tdvals,
             tickangle=90,
-            type='category'
-        )
+            type='category'),
+        yaxis=dict(
+            title='y main' if y_left_label is None else y_left_label
+        ),
     )
-    fig = go.Figure(data=[d1],layout=layout)
-    return fig   
+    if len(d_array)>1:
+        layout = go.Layout(
+            title='plotly' if plot_title is None else plot_title,
+            xaxis=dict(
+                ticktext=tdvals,
+                tickvals=tdvals,
+                tickangle=90,
+                type='category'),
+            xaxis2=dict(
+                ticktext=tdvals,
+                tickvals=tdvals,
+                tickangle=90,
+                type='category'),
+            yaxis=dict(
+                title='y main' if y_left_label is None else y_left_label
+            ),
+            yaxis2=dict(
+                title='y alt' if y_right_label is None else y_right_label,
+                overlaying='y',
+                side='right')
+        )
+
+    fig = go.Figure(data=d_array,layout=layout)
+    return fig
+
+# def plotly_pandas(df_in,x_column,num_of_x_ticks=20,bar_plot=False,figsize=(16,10)):    
+#     plotly_fig = tls.mpl_to_plotly(plot_pandas(
+#         df_in,
+#         x_column=x_column,
+#         num_of_x_ticks=num_of_x_ticks,
+#         bar_plot=bar_plot,
+#         figsize=figsize).get_figure())
+#     d1 = plotly_fig['data'][0]
+#     d_array = [d1]
+#     if len(plotly_fig['data'])>1:
+#         d_array.append(plotly_fig['data'][1])
+#     number_of_ticks_display=num_of_x_ticks
+#     td = list(df_in[x_column]) 
+#     spacing = len(td)//number_of_ticks_display
+#     tdvals = td[::spacing]
+#     d1.x = td
+        
+#     layout = go.Layout(
+#         xaxis=dict(
+#             ticktext=tdvals,
+#             tickvals=tdvals,
+#             tickangle=90,
+#             type='category'
+#         )
+#     )
+#     if len(d_array)>1:
+#         layout = go.Layout(
+#             xaxis=dict(
+#                 ticktext=tdvals,
+#                 tickvals=tdvals,
+#                 tickangle=90,
+#                 type='category'),
+#             yaxis2=dict(
+#                 overlaying='y',
+#                 side='right')
+#         )
+    
+# #     fig = go.Figure(data=[d1],layout=layout)
+#     fig = go.Figure(data=d_array,layout=layout)
+#     return fig   
