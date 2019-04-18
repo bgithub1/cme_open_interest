@@ -441,43 +441,4 @@ def plotly_pandas(df_in,x_column,num_of_x_ticks=20,plot_title=None,
     fig = go.Figure(data=d_array,layout=layout)
     return fig
 
-# def plotly_pandas(df_in,x_column,num_of_x_ticks=20,bar_plot=False,figsize=(16,10)):    
-#     plotly_fig = tls.mpl_to_plotly(plot_pandas(
-#         df_in,
-#         x_column=x_column,
-#         num_of_x_ticks=num_of_x_ticks,
-#         bar_plot=bar_plot,
-#         figsize=figsize).get_figure())
-#     d1 = plotly_fig['data'][0]
-#     d_array = [d1]
-#     if len(plotly_fig['data'])>1:
-#         d_array.append(plotly_fig['data'][1])
-#     number_of_ticks_display=num_of_x_ticks
-#     td = list(df_in[x_column]) 
-#     spacing = len(td)//number_of_ticks_display
-#     tdvals = td[::spacing]
-#     d1.x = td
-        
-#     layout = go.Layout(
-#         xaxis=dict(
-#             ticktext=tdvals,
-#             tickvals=tdvals,
-#             tickangle=90,
-#             type='category'
-#         )
-#     )
-#     if len(d_array)>1:
-#         layout = go.Layout(
-#             xaxis=dict(
-#                 ticktext=tdvals,
-#                 tickvals=tdvals,
-#                 tickangle=90,
-#                 type='category'),
-#             yaxis2=dict(
-#                 overlaying='y',
-#                 side='right')
-#         )
-    
-# #     fig = go.Figure(data=[d1],layout=layout)
-#     fig = go.Figure(data=d_array,layout=layout)
-#     return fig   
+ 
