@@ -441,4 +441,48 @@ def plotly_pandas(df_in,x_column,num_of_x_ticks=20,plot_title=None,
     fig = go.Figure(data=d_array,layout=layout)
     return fig
 
+def plotly_plot(df_in,x_column,plot_title=None,
+                y_left_label=None,y_right_label=None,
+                bar_plot=False,figsize=(16,10),
+                number_of_ticks_display=20,
+                yaxis2_cols=None):
+    ya2c = [] if yaxis2_cols is None else yaxis2_cols
+    ycols = [c for c in df_in.columns.values if c != x_column]
+    # create tdvals, which will have x axis labels
+    td = list(df_in[x_column]) 
+    spacing = len(td)//number_of_ticks_display
+    tdvals = td[::spacing]
+    
+    # create data for graph
+    data = []
+    # iterate through all ycols to append to data that gets passed to go.Figure
+    for ycol in ycols:
+        if bar_plot:
+            b = go.Bar(x=td,y=df_in[ycol],name=ycol,yaxis='y' if ycol not in ya2c else 'y2')
+        else:
+            b = go.Scatter(x=td,y=df_in[ycol],name=ycol,yaxis='y' if ycol not in ya2c else 'y2')
+        data.append(b)
+
+    # create a layout
+    layout = go.Layout(
+        title=plot_title,
+        xaxis=dict(
+            ticktext=tdvals,
+            tickvals=tdvals,
+            tickangle=45,
+            type='category'),
+        yaxis=dict(
+            title='y main' if y_left_label is None else y_left_label
+        ),
+        yaxis2=dict(
+            title='y alt' if y_right_label is None else y_right_label,
+            overlaying='y',
+            side='right'),
+        margin=go.Margin(
+            b=100
+        )        
+    )
+
+    fig = go.Figure(data=data,layout=layout)
+    return fig
  
