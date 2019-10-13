@@ -62,7 +62,7 @@ def psql_merge(df1_name,col1_low,col1_high,df2_name,col2_low,col2_high):
 
 
 
-def plot_pandas(df_in,x_column,num_of_x_ticks=20,bar_plot=False,figsize=(16,10)):
+def plot_pandas(df_in,x_column,num_of_x_ticks=20,bar_plot=False,figsize=(16,10),alt_yaxis=True):
     '''
     '''
     df_cl = df_in.copy()
@@ -79,12 +79,12 @@ def plot_pandas(df_in,x_column,num_of_x_ticks=20,bar_plot=False,figsize=(16,10))
     ycols = list(filter(lambda c: c!=x_column,df_cl.columns.values))
     all_cols = [x_column] + ycols
     if bar_plot:
-        if len(ycols)>1:
+        if len(ycols)>1 and alt_yaxis:
             ax = df_cl[ycols].plot.bar(secondary_y=ycols[1:],figsize=figsize)
         else:
             ax = df_cl[ycols].plot.bar(figsize=figsize)
     else:
-        if len(ycols)>1:
+        if len(ycols)>1 and alt_yaxis:
             ax = df_cl[ycols].plot(secondary_y=ycols[1:],figsize=figsize)
         else:
             ax = df_cl[ycols].plot(figsize=figsize)
@@ -388,8 +388,10 @@ def symbol_merge(symbol_list,value_column='close',date_column='date',fetcher=Non
     return {'raw':df_final,'merged':df_merged,'corr':df_corr}
 
 def plotly_pandas(df_in,x_column,num_of_x_ticks=20,plot_title=None,
-                  y_left_label=None,y_right_label=None,bar_plot=False,figsize=(16,10)):    
-    f = plot_pandas(df_in,x_column=x_column,bar_plot=False)#.get_figure()
+                  y_left_label=None,y_right_label=None,bar_plot=False,figsize=(16,10),alt_yaxis=True):    
+#     f = plot_pandas(df_in,x_column=x_column,bar_plot=False)#.get_figure()
+    f = plot_pandas(df_in,x_column=x_column,bar_plot=bar_plot,
+                    num_of_x_ticks=num_of_x_ticks,alt_yaxis=alt_yaxis)#.get_figure()
     # list(filter(lambda s: 'get_y' in s,dir(f)))
     plotly_fig = tls.mpl_to_plotly(f.get_figure())
     d1 = plotly_fig['data'][0]
@@ -439,6 +441,10 @@ def plotly_pandas(df_in,x_column,num_of_x_ticks=20,plot_title=None,
         )
 
     fig = go.Figure(data=d_array,layout=layout)
+    if bar_plot:  # fix y values, which have all become positive
+        df_yvals = df_in[[c for c in df_in.columns.values if c != x_column]]
+        for i in range(len(df_yvals.columns.values)):
+            fig.data[i].y = df_yvals[df_yvals.columns.values[i]]
     return fig
 
 def plotly_plot(df_in,x_column,plot_title=None,
