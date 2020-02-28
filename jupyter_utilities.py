@@ -6,7 +6,7 @@ import datetime
 import pandas_datareader.data as pdr
 
 import matplotlib.pyplot as plt
-import plotly.plotly as py
+# import plotly.plotly as py
 import plotly.graph_objs as go
 from plotly.offline import iplot
 import plotly.tools as tls
