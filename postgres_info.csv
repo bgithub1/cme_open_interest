@@ -1,0 +1,2 @@
+config_name,dburl,databasename,username,password
+local,localhost,sec_db,,
