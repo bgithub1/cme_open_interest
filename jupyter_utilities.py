@@ -449,7 +449,7 @@ def plotly_pandas(df_in,x_column,num_of_x_ticks=20,plot_title=None,
 
 def plotly_plot(df_in,x_column,plot_title=None,
                 y_left_label=None,y_right_label=None,
-                bar_plot=False,figsize=(16,10),
+                bar_plot=False,figsize=None,#figsize=(16,10),
                 number_of_ticks_display=20,
                 yaxis2_cols=None):
     ya2c = [] if yaxis2_cols is None else yaxis2_cols
@@ -490,5 +490,42 @@ def plotly_plot(df_in,x_column,plot_title=None,
     )
 
     fig = go.Figure(data=data,layout=layout)
+    
+    fig.update_layout(
+        title={
+            'text': plot_title,
+            'y':0.9,
+            'x':0.5,
+            'xanchor': 'center',
+            'yanchor': 'top'})
+    if figsize is not None:
+        fig.update_layout(
+            autosize=False,width=figsize[0],height=figsize[1])
     return fig
+
+def plotly_shaded_rectangles(beg_end_date_tuple_list,fig):
+    ld_shapes = []
+    for beg_end_date_tuple in beg_end_date_tuple_list:
+        ld_beg = beg_end_date_tuple[0]
+        ld_end = beg_end_date_tuple[1]
+        ld_shape = dict(
+            type="rect",
+            # x-reference is assigned to the x-values
+            xref="x",
+            # y-reference is assigned to the plot paper [0,1]
+            yref="paper",
+            x0=ld_beg,
+            y0=0,
+            x1=ld_end,
+            y1=1,
+            fillcolor="LightSalmon",
+            opacity=0.5,
+            layer="below",
+            line_width=0,
+        )
+        ld_shapes.append(ld_shape)
+
+    fig.update_layout(shapes=ld_shapes)
+    return fig
+
  
